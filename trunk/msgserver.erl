@@ -5,11 +5,12 @@
 -export([dispatch/1, popmsg/0]).
 
 -define(TTL, 15000).
+-define(DELAY, 10).
 -define(GEN_CAST, '$gen_cast').
 
 -import(lists, [foreach/2]).
 
--import(whereserver, [whois/1]).
+-import(whereserver, [where/1]).
 -import(channelserver, [userlist/0]).
 
 
@@ -20,21 +21,22 @@ init(_) ->
     {ok, []}.
     
 handle_cast({push, Who, Msg}, Msgs) ->
-    {noreply, Msgs ++ [{message, Who, Msg}]}.
-    
-handle_call({pop}, {From, _Tag}, Msgs) ->
-    {address, Who, From} = whois(From),
-    case [M || M = {message, W, _} <- Msgs, W =:= Who] of
-        [] ->
+    case where(Who) of
+        {address, notfound} ->
+            {noreply, Msgs ++ [{message, Who, Msg}]};
+        {address, Who, From} ->
+            Tag = make_ref(),
+            From ! {self(), Tag, {message, Msg}},
             receive
-                {?GEN_CAST, {push, Who, Msg}} ->
-                    {reply, Msg, Msgs}
-                after ?TTL ->
-                    {reply, "", Msgs}
-            end;
-        [Msg|_] ->
-            {reply, Msg, lists:delete(Msg, Msgs)}
+                {Tag, finish} ->
+                    {noreply, Msgs}
+            after ?DELAY ->
+                {noreply, Msgs ++ [{message, Who, Msg}]}
+            end
     end.
+        
+handle_call(_Request, _From, State) ->
+    {reply, void, State}.
     
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -52,5 +54,11 @@ dispatch(Msg) ->
         end, userlist()).
     
 popmsg() ->
-    gen_server:call(?MODULE, {pop}, infinity).   
+    receive
+        {Server, Tag, {message, Msg}} ->
+            Server ! {Tag, finish},
+            Msg
+    after ?TTL ->
+        ""
+    end.
 
