@@ -10,7 +10,7 @@
 
 -import(lists, [foreach/2]).
 
--import(whereserver, [where/1]).
+-import(whereserver, [where/1, whois/1]).
 -import(channelserver, [userlist/0]).
 
 
@@ -18,12 +18,13 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
     
 init(_) ->
-    {ok, []}.
+    {ok, ets:new(message, [private, duplicate_bag])}.
     
 handle_cast({push, Who, Msg}, Msgs) ->
     case where(Who) of
         {address, notfound} ->
-            {noreply, Msgs ++ [{message, Who, Msg}]};
+            ets:insert(Msgs, {Who, Msg, make_ref()}),
+            {noreply, Msgs};
         {address, Who, From} ->
             Tag = make_ref(),
             From ! {self(), Tag, {message, Msg}},
@@ -31,9 +32,26 @@ handle_cast({push, Who, Msg}, Msgs) ->
                 {Tag, finish} ->
                     {noreply, Msgs}
             after ?DELAY ->
-                {noreply, Msgs ++ [{message, Who, Msg}]}
+                ets:insert(Msgs, {Who, Msg, make_ref()}),
+                {noreply, Msgs}
             end
-    end.
+    end;
+    
+handle_cast({pop, Who, From}, Msgs) ->
+    case ets:lookup(Msgs, Who) of
+        [] ->
+            void;
+        [H|_] ->
+            {Who, Msg, Tag} = H,
+            From ! {self(), Tag, {message, Msg}},
+            receive
+                {Tag, finish} ->
+                    ets:delete_object(Msgs, H)
+            after ?DELAY ->
+                void
+            end
+    end,
+    {noreply, Msgs}.
         
 handle_call(_Request, _From, State) ->
     {reply, void, State}.
@@ -54,6 +72,8 @@ dispatch(Msg) ->
         end, userlist()).
     
 popmsg() ->
+    {address, Who, _From} = whois(self()),
+    gen_server:cast(?MODULE, {pop, Who, self()}),
     receive
         {Server, Tag, {message, Msg}} ->
             Server ! {Tag, finish},

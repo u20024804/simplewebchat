@@ -11,16 +11,19 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
     
 init(_) ->
-    {ok, []}.
+    {ok, ets:new(man, [private])}.
 
 handle_cast({join, Who}, Men) ->
-    {noreply, umerge(Men, [Who])};
+    ets:insert(Men, {Who}),
+    {noreply, Men};
     
 handle_cast({leave, Who}, Men) ->
-    {noreply, lists:delete(Who, Men)}.
+    ets:delete(Men, Who),
+    {noreply, Men}.
     
 handle_call({userlist}, _From, Men) ->
-    {reply, Men, Men}.
+    All = ets:select(Men, [{{'$1'},[],['$1']}]),
+    {reply, All, Men}.
     
 handle_info(_Info, State) ->
     {noreply, State}.
