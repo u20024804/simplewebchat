@@ -4,20 +4,37 @@
         write_packet/1, read_packet/1, querystr/1, format/2, decode/1, filter/1]).
         
 -import(erlang, [list_to_integer/2]).
--import(lists, [sublist/2, split/2, map/2, append/1, reverse/1]).
+-import(lists, [sublist/2, split/2, map/2, append/1, reverse/1, splitwith/2]).
 -import(string, [str/2, chr/2, strip/1, tokens/2]).
 
 phrase_request(Request) ->
     Boder = str(Request, "\r\n\r\n"),
     {Head, BodyWithLn} = split(Boder, Request),
     [$\n, $\r, $\n|Body] = BodyWithLn,
-    [Method|RawHeads] = tokens(Head, "\r\n"),
+    [RawAction|RawHeads] = tokens(Head, "\r\n"),
+    [Method, Url, Version] = tokens(RawAction, " "),
+    {Location, QueryStr0} = splitwith(fun(C) -> C =/= $? end, Url),
+    UrlQuery = case QueryStr0 of
+        [] ->
+            [];
+        [$?|QueryStr1] ->
+            try querystr(QueryStr1)
+            catch
+                error:{badmatch, _} -> {tag, QueryStr1}
+            end
+    end,
+    Action = case Method of
+        "POST" ->
+            {post, Location, Version, UrlQuery};
+        "GET" ->
+            {get, Location, Version, UrlQuery}
+    end,
     Heads = map(fun(H) ->
             {K0, V0} = split(chr(H, $:), H),
             K1 = sublist(K0, length(K0) - 1),
             {head, strip(K1), strip(V0)}
         end, RawHeads),
-    {request, Method, Heads, Body}.
+    {request, Action, Heads, Body}.
     
 phrase_cookie(Cookies) ->
     map(fun (C) ->
