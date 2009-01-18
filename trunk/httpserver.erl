@@ -7,9 +7,9 @@
 -import(gen_tcp, [listen/2, accept/1, close/1, send/2, recv/2]).
 -import(lists, [concat/1]).
 
--import(channelserver, [channel_server/1, join/1]).
--import(whereserver, [where_server/1, iam/1, off/1]).
--import(msgserver, [msg_server/1, popmsg/0, dispatch/1]).
+-import(channelserver, [join/2]).
+-import(whereserver, [iam/2, off/2]).
+-import(msgserver, [popmsg/2, dispatch/2]).
 -import(phrase, [phrase_request/1, phrase_cookie/1, packet_response/1, packet_cookie/1,
         write_packet/1, read_packet/1, querystr/1, format/2, decode/1, filter/1]).
 
@@ -81,7 +81,7 @@ create_sessionId() ->
 %    R.
     
 
-process({request, Method, Heads, Data}) ->
+process({request, Action, Heads, Data}) ->
     case [C ||{head, "Cookie", C} <- Heads] of
         [] ->
             SessionId = create_sessionId(),
@@ -98,18 +98,19 @@ process({request, Method, Heads, Data}) ->
         
     Inputs = querystr(Data),
     Outs = [format("input: #~s#, #~s#<br/>\n", [Key, Value]) || {input, Key, Value} <- Inputs],
+    {Method, Channel, _Version, _UrlQuery} = Action,
     Msg = if
-        Method =:= "POST / HTTP/1.1" ->
-            dispatch(concat(Outs)),
+        Method =:= post ->
+            dispatch(concat(Outs), Channel),
             "";
         length(Cookies) =/= 0 ->
-            join(SessionId),
+            join(SessionId, Channel),
             "";
         true ->
-            join(SessionId),
-            iam(SessionId),
-            M = filter(popmsg()),            
-            off(SessionId),
+            join(SessionId, Channel),
+            iam(SessionId, Channel),
+            M = filter(popmsg(SessionId, Channel)),            
+            off(SessionId, Channel),
             M
     end,
     Body = format("function response(){return 'get: ~s'}", [Msg]),
