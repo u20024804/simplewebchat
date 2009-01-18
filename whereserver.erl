@@ -11,29 +11,32 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
     
 init(_) ->
-    {ok, []}.
+    {ok, ets:new(address, [private])}.
     
 handle_cast(_, State) ->
     {noreply, State}.
     
 handle_call({iam, Who}, {From, _Tag}, Addrs) ->
-    {reply, void, umerge(Addrs, [{address, Who, From}])};
+    ets:insert(Addrs, {Who, From}),
+    {reply, void, Addrs};
     
-handle_call({off, Who}, {From, _Tag}, Addrs) ->
-    {reply, void, lists:delete({address, Who, From}, Addrs)};
+handle_call({off, Who}, {_From, _Tag}, Addrs) ->
+    ets:delete(Addrs, Who),
+    {reply, void, Addrs};
     
-handle_call({Q, WhoOrWhere}, _From, Addrs) when (Q =:= where) or (Q =:= whois) ->
-    Ws = case Q of
-            where ->
-                [Addr || Addr = {address, Who, _} <- Addrs, Who =:= WhoOrWhere];
-            whois ->
-                [Addr || Addr = {address, _, Where} <- Addrs, Where =:= WhoOrWhere]
-        end,
+handle_call({Q, WhoOrWhere}, _From, Addrs) when Q =:= where; Q =:= whois ->
+    case Q of
+        where ->
+            Ws = ets:lookup(Addrs, WhoOrWhere);
+        whois ->
+            Ws = ets:select(Addrs, [{{'$1','$2'},[{'=:=','$2',{const,WhoOrWhere}}],['$_']}])
+    end,
     W = case Ws of
             [] ->
                 {address, notfound};
             [Addr|_] ->
-                Addr
+                {Who, From} = Addr,
+                {address, Who, From}
         end,
     {reply, W, Addrs}.
     
@@ -55,7 +58,8 @@ off(Who) ->
     
 where(Who) ->
     gen_server:call(?MODULE, {where, Who}).
-
+    
 whois(From) ->
     gen_server:call(?MODULE, {whois, From}).
+
 
