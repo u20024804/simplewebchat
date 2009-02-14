@@ -2,7 +2,8 @@
 
 -export([phrase_request/1, phrase_cookie/1, packet_response/1, packet_cookie/1,
         write_packet/1, read_packet/1, querystr/1, format/2, decode/1, filter/1]).
-        
+  
+-include("head.hrl").
 -import(erlang, [list_to_integer/2]).
 -import(lists, [sublist/2, split/2, map/2, append/1, reverse/1, splitwith/2]).
 -import(string, [str/2, chr/2, strip/1, tokens/2]).
@@ -34,7 +35,7 @@ phrase_request(Request) ->
             K1 = sublist(K0, length(K0) - 1),
             {head, strip(K1), strip(V0)}
         end, RawHeads),
-    {request, Action, Heads, Body}.
+    #request{action=Action, heads=Heads, data=Body}.
     
 phrase_cookie(Cookies) ->
     map(fun (C) ->
@@ -43,7 +44,7 @@ phrase_cookie(Cookies) ->
             {cookie, strip(C1), base64:decode_to_string(strip(V0))}
         end, tokens(Cookies, ";")).
 
-packet_response({Status, Heads, Body}) ->
+packet_response(#response{status=Status, heads=Heads, body=Body}) ->
     Heads2 = [format("~s: ~s\r\n", [H, V]) || {head, H, V} <- Heads],
     Head = append(Heads2),
     format("HTTP/1.1 ~s\r\n~sContent-Length: ~p\r\n\r\n~s",
