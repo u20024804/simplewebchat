@@ -11,11 +11,11 @@ start_link() ->
 init(_) ->
     {ok, {{one_for_one, 3, 1}, [
             {msgserver, {msgserver, start_link, []},
-                permanent, ?MTTL, worker, [msgserver]},
+                permanent, brutal_kill, worker, [msgserver]},
             {channelserver, {channelserver, start_link, []},
-                permanent, 10000, worker, [channelserver]},
+                permanent, brutal_kill, worker, [channelserver]},
             {whereserver, {whereserver, start_link, []},
-                permanent, 10000, worker, [whereserver]},
+                permanent, brutal_kill, worker, [whereserver]},
             {httpserver, {httpserver, start_link, []},
                 permanent, ?MTTL, worker, [httpserver]}
         ]}}.

@@ -7,7 +7,7 @@
 -include("head.hrl").
 -import(gen_tcp, [listen/2, accept/1, close/1, send/2, recv/2]).
 -import(phrase, [phrase_request/1, phrase_cookie/1, packet_response/1,
-                packet_cookie/1, write_packet/1, read_packet/1]).
+                packet_cookie/1, write_packet/1, read_packet/1, format/2]).
 
 
 start_link() ->
@@ -42,9 +42,24 @@ work(Socket) ->
             Request = read_packet(Bin),
             PhrReq = phrase_request(Request),
             #request{action={Method, Location, _, _}} = PhrReq,
-            [Dispatcher|_] = [Dispatcher || {urldispatch, Location0, Dispatcher} <- config:url(), lists:prefix(Location0, Location)],
+            Dispatcher = case [Dispatcher || {urldispatch, Location0, Dispatcher}
+                    <- config:url(), lists:prefix(Location0, Location)] of
+                    [] ->
+                        fun processer:notfound/2;
+                    [FirstDispatcher|_] ->
+                        FirstDispatcher
+                end,
             PhrReqWithCookie = #request{setcookie=SetCookie0} = check_cookie(PhrReq),
-            Response = #response{heads=Heads1, setcookie=SetCookie1} = Dispatcher(Method, PhrReqWithCookie),
+            Response = #response{heads=Heads1, setcookie=SetCookie1} =
+                try Dispatcher(Method, PhrReqWithCookie)
+                catch
+                    throw:Throw ->
+                        #response{body=format("throw: ~p~n", [Throw])};
+                    exit:Exit ->
+                        #response{body=format("exit: ~p~n", [Exit])};
+                    error:Error ->
+                        #response{body=format("error: ~p~n", [Error])}
+                end,
             SetCookie = case SetCookie0 of
                     [] ->
                         SetCookie1;
