@@ -1,8 +1,9 @@
 -module(processer).
 
--export([index/2]).
+-export([index/2, register/2]).
 
 
+-include("head.hrl").
 -import(lists, [concat/1]).
 -import(channelserver, [join/2]).
 -import(whereserver, [iam/2, off/2]).
@@ -10,7 +11,7 @@
 -import(phrase, [phrase_request/1, phrase_cookie/1, packet_response/1, packet_cookie/1,
         write_packet/1, read_packet/1, querystr/1, format/2, decode/1, filter/1]).
 
-index(get, {request, Action, _Heads, _Data, _Cookies, SetCookie, SessionId, false}) ->
+index(get, #request{action=Action, sessionid=SessionId, sessionbegin=false}) ->
     {_Method, Channel, _Version, _UrlQuery} = Action,
     join(SessionId, Channel),
     iam(SessionId, Channel),
@@ -25,25 +26,27 @@ index(get, {request, Action, _Heads, _Data, _Cookies, SetCookie, SessionId, fals
             Heads = [{head, "Content-Type", "text/html; charset=utf-8"},
                     {head, "Cache-Control", "no-cache"}]
     end,
-    Status = "200 OK",
-    {Status, Heads, SetCookie, Body};
+    #response{heads=Heads, body=Body};
     
-index(get, {request, Action, _Heads, _Data, _Cookies, SetCookie, SessionId, true}) ->
+index(get, #request{action=Action, sessionid=SessionId, sessionbegin=true}) ->
     {_Method, Channel, _Version, _UrlQuery} = Action,
     join(SessionId, Channel),
     Body = "function response(){return ''}",
-    Status = "200 OK",
-    Heads = [],
-    {Status, Heads, SetCookie, Body};
+    #response{body=Body};
 
-index(post, {request, Action, _Heads, Data, _Cookies, SetCookie, _SessionId, _}) ->
+index(post, #request{action=Action, data=Data}) ->
     Inputs = querystr(Data),
     Outs = [format("input: #~s#, #~s#<br/>\n", [Key, Value]) || {input, Key, Value} <- Inputs],
     {_Method, Channel, _Version, _UrlQuery} = Action,
     dispatch(concat(Outs), Channel),
-    Body = "",
-    Status = "200 OK",
-    Heads = [],
-    {Status, Heads, SetCookie, Body}.
-
+    #response{}.
+    
+register(post, #request{data=Data}) ->
+    Inputs = querystr(Data),
+    [Username] = [Username || {input, "username", Username} <- Inputs],
+    [Password] = [Password || {input, "password", Password} <- Inputs],
+    User = #user{username=Username, password=Password},
+    mnesia:write(User),
+    Body = "register success",
+    #response{body=Body}.
 

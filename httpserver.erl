@@ -4,6 +4,7 @@
 -export([start_link/0]).
 -export([acceptor_loop/2]).
 
+-include("head.hrl").
 -import(gen_tcp, [listen/2, accept/1, close/1, send/2, recv/2]).
 -import(phrase, [phrase_request/1, phrase_cookie/1, packet_response/1,
                 packet_cookie/1, write_packet/1, read_packet/1]).
@@ -40,18 +41,24 @@ work(Socket) ->
         {ok, Bin} ->
             Request = read_packet(Bin),
             PhrReq = phrase_request(Request),
-            {_, {Method, Location, _, _}, _, _} = PhrReq,
+            #request{action={Method, Location, _, _}} = PhrReq,
             [Dispatcher|_] = [Dispatcher || {urldispatch, Location0, Dispatcher} <- config:url(), lists:prefix(Location0, Location)],
-            PhrReqWithCookie = check_cookie(PhrReq),
-            {Status, Heads0, SetCookie, Body} = Dispatcher(Method, PhrReqWithCookie),
-            case SetCookie of
-                [] ->
-                    Heads = Heads0;
-                _ ->
-                    Heads = [{head, "Set-Cookie", packet_cookie(SetCookie)} | Heads0]
-            end,
-            Response = packet_response({Status, Heads, Body}),
-            send(Socket, write_packet(Response));
+            PhrReqWithCookie = #request{setcookie=SetCookie0} = check_cookie(PhrReq),
+            Response = #response{heads=Heads1, setcookie=SetCookie1} = Dispatcher(Method, PhrReqWithCookie),
+            SetCookie = case SetCookie0 of
+                    [] ->
+                        SetCookie1;
+                    [SessionId] ->
+                        [SessionId | SetCookie1]
+                end,
+            Heads = case SetCookie of
+                    [] ->
+                        Heads1;
+                    _ ->
+                        [{head, "Set-Cookie", packet_cookie(SetCookie)} | Heads1]
+                end,
+            RawResponse = packet_response(Response#response{heads=Heads}),
+            send(Socket, write_packet(RawResponse));
         {error, closed} ->
             void
     end,
@@ -84,7 +91,7 @@ create_sessionId() ->
 %    io:format("gen Sid: ~p~n", [R]),
 %    R.
     
-check_cookie({request, Action, Heads, Data}) ->
+check_cookie(Request=#request{heads=Heads}) ->
     case [C ||{head, "Cookie", C} <- Heads] of
         [] ->
             SessionId = create_sessionId(),
@@ -103,6 +110,6 @@ check_cookie({request, Action, Heads, Data}) ->
                     SessionBegin = false
             end
     end,
-    {request, Action, Heads, Data, Cookies, SetCookie, SessionId, SessionBegin}.
-
+    Request#request{sessionid=SessionId, cookies=Cookies, setcookie=SetCookie,
+            sessionbegin=SessionBegin}.
 
