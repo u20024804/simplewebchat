@@ -41,9 +41,15 @@ work(Socket) ->
             Request = read_packet(Bin),
             PhrReq = phrase_request(Request),
             {_, {Method, Location, _, _}, _, _} = PhrReq,
-            [Dispatcher] = [Dispatcher || {urldispatch, Location0, Dispatcher} <- config:url(), Location0 =:= Location],
+            [Dispatcher|_] = [Dispatcher || {urldispatch, Location0, Dispatcher} <- config:url(), lists:prefix(Location0, Location)],
             PhrReqWithCookie = check_cookie(PhrReq),
-            {Status, Heads, Body} = Dispatcher(Method, PhrReqWithCookie),
+            {Status, Heads0, SetCookie, Body} = Dispatcher(Method, PhrReqWithCookie),
+            case SetCookie of
+                [] ->
+                    Heads = Heads0;
+                _ ->
+                    Heads = [{head, "Set-Cookie", packet_cookie(SetCookie)} | Heads0]
+            end,
             Response = packet_response({Status, Heads, Body}),
             send(Socket, write_packet(Response));
         {error, closed} ->
@@ -82,20 +88,21 @@ check_cookie({request, Action, Heads, Data}) ->
     case [C ||{head, "Cookie", C} <- Heads] of
         [] ->
             SessionId = create_sessionId(),
-            Cookies = [{cookie, "SessionId", SessionId}],
+            Cookies = [],
+            SetCookie = [{cookie, "SessionId", SessionId}],
             SessionBegin = true;
         [C] ->
-            OldCookies = phrase_cookie(C),
-            case [SessionId || {cookie, "SessionId", SessionId} <- OldCookies] of
+            Cookies = phrase_cookie(C),
+            case [SessionId || {cookie, "SessionId", SessionId} <- Cookies] of
                 [] ->
                     SessionId = create_sessionId(),
-                    Cookies = [{cookie, "SessionId", SessionId} | OldCookies],
+                    SetCookie = [{cookie, "SessionId", SessionId}],
                     SessionBegin = true;
                 [SessionId] ->
-                    Cookies = OldCookies,
+                    SetCookie = [],
                     SessionBegin = false
             end
     end,
-    {request, Action, Heads, Data, Cookies, SessionId, SessionBegin}.
+    {request, Action, Heads, Data, Cookies, SetCookie, SessionId, SessionBegin}.
 
 

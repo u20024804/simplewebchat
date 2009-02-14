@@ -5,5 +5,5 @@
 
 url() ->
     [
-        {urldispatch, "/", fun processer:index/2}
+        {urldispatch, "/message", fun processer:index/2}
     ].
