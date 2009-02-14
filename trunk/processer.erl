@@ -1,7 +1,6 @@
 -module(processer).
 
--export([index/2, register/2]).
-
+-export([index/2, register/2, notfound/2]).
 
 -include("head.hrl").
 -import(lists, [concat/1]).
@@ -46,7 +45,12 @@ register(post, #request{data=Data}) ->
     [Username] = [Username || {input, "username", Username} <- Inputs],
     [Password] = [Password || {input, "password", Password} <- Inputs],
     User = #user{username=Username, password=Password},
-    mnesia:write(User),
+    mnesia:transaction(fun() -> mnesia:write(User) end),
     Body = "register success",
+    #response{body=Body}.
+
+notfound(Method, Request) when Method =:= get; Method =:= post ->
+    {_, Location, _, _} = Request#request.action,
+    Body = format("the page requested not found: \"~s\"", [Location]),
     #response{body=Body}.
 

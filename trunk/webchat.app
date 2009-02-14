@@ -12,6 +12,6 @@
         ]},
     {mod, {webchat_app, []}},
     {registered, []},
-    {applications, [kernel, stdlib]},
+    {applications, [kernel, stdlib, mnesia]},
     {env, []}
     ]}.

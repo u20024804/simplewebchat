@@ -63,12 +63,21 @@ read_packet(Bin) ->
             
 format(Format, Str) ->
     L = io_lib:format(Format, Str),
-    append(map(fun(C) ->
-            case is_list(C) of
-                false -> [C];
-                true -> C
-            end
-        end, L)).
+    super_append(L).
+        
+super_append(L) ->
+    super_append(L, []).
+    
+super_append([], R) ->
+    lists:reverse(R);
+    
+super_append([H|T], R) when not is_list(H) ->
+    super_append(T, [H|R]);
+    
+super_append([H|T], R) ->
+    R1 = super_append(H, R),
+    R2 = lists:reverse(R1),
+    super_append(T, R2).
     
 querystr(Str) ->
     Items = tokens(Str, "&"),
