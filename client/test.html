@@ -1,0 +1,64 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/> 
+</head>
+<body onload="onload();">
+<form id="f" action='http://127.0.0.1:8000' method='post'>
+<input type='text' name='key1' />
+<input type='text' name='key2' />
+<input type='submit' />
+<p>
+<textarea id="debug" rows="10" cols="40">
+</textarea>
+</p>
+<input id='db' type="button" value='do' onclick="do_it();" />
+</form>
+<div id="out"></div>
+<iframe id="client" src="http://127.0.0.1:8800/static/client.htm" scrolling="yes">
+</iframe>
+</body>
+<script type="text/javascript" src="mootools.js"></script>
+<script>
+function do_it() {
+    var r = '';
+    try {
+        r += (eval($('debug').value));
+    } catch(e) {
+        r += typeof(e) + ': ' + e;
+    }
+    $('out').innerHTML = r;
+}
+var c, d, mf, sb, msg, f;
+//document.domain = 'my.com';
+
+function onload() {
+    alert('test onload');
+    c = $('client');
+    d = c.contentDocument;
+    f = document.getElementById('f');
+    mf = d.getElementById('msg_form');
+    sb = d.getElementById('sb');
+    mf.action = 'http://my.com:8000';
+    mf.method = 'post';
+    msg = new Element("input", {'type': 'text', 'name': 'message', 'value': 'test'});
+    mf.adopt(msg);
+    /*
+    mf.onsubmit = function() {
+            var _ = function(){
+                    eval('alert(location.href)');
+                }();
+        };*/
+    ///*
+    mf.onsubmit = function() {
+            alert('before send: '+eval('location.href'));
+            try {
+                new Request.HTML({url: 'http://my.com:8000'}).post(mf);
+            } catch(e) {
+                alert(typeof(e)+': '+e);
+            }
+            alert('after send');
+            return false;
+        };//*/
+}
+</script>
+</html>
