@@ -4,5 +4,5 @@
 
 -record(user, {username, password}).
 -record(group, {groupname, username}).
--record(message, {receiver, sender, content, time}).
+-record(message, {receiver, sender, content, time, tag}).
 
