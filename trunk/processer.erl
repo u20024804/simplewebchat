@@ -1,11 +1,11 @@
 -module(processer).
 
--export([index/2, register/2, notfound/2, login/2]).
+-export([index/2, register/2, notfound/2, login/2, join/2]).
 
 -include("head.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 -import(lists, [concat/1]).
--import(channelserver, [join/2]).
+%-import(channelserver, [join/2]).
 -import(whereserver, [iam/1, off/1]).
 -import(msgserver, [popmsg/2, dispatch/2]).
 -import(sessionserver, [get_session/2, del_session/2, set_session/3]).
@@ -14,7 +14,7 @@
 -import(util, [input/2, do/1]).
 
 index(get, #request{action=Action, sessionid=SessionId}) ->
-    {_Method, Channel, _Version, _UrlQuery} = Action,
+    {_Method, "/message/" ++ Channel, _Version, _UrlQuery} = Action,
     {session, found, User} = get_session(SessionId, "username"),
     iam(User),
     Msg = filter(popmsg(User, Channel)),            
@@ -33,7 +33,7 @@ index(get, #request{action=Action, sessionid=SessionId}) ->
 index(post, #request{action=Action, data=Data}) ->
     Inputs = querystr(Data),
     Outs = [format("input: #~s#, #~s#<br/>\n", [Key, Value]) || {input, Key, Value} <- Inputs],
-    {_Method, Channel, _Version, _UrlQuery} = Action,
+    {_Method, "/message/" ++ Channel, _Version, _UrlQuery} = Action,
     dispatch(concat(Outs), Channel),
     #response{}.
     
@@ -59,6 +59,13 @@ login(post, #request{data=Data, sessionid=SessionId}) ->
                 Body = "login success"
         end,
     #response{body=Body}.
+    
+join(post, #request{data=Data}) ->
+    Inputs = querystr(Data),
+    User = input(Inputs, "user"),
+    Channel = input(Inputs, "channel"),
+    channelserver:join(User, Channel),
+    #response{body=format("~p joined ~p~n", [User, Channel])}.
 
 notfound(Method, Request) when Method =:= get; Method =:= post ->
     {_, Location, _, _} = Request#request.action,
