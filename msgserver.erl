@@ -68,7 +68,7 @@ code_change(_OldVsn, State, _Extra) ->
 
     
 dispatch(Msg, Channel) ->
-    foreach(fun({_Channel, Who}) ->
+    foreach(fun(Who) ->
             gen_server:cast(?MODULE, {push, Who, Channel, Msg})
         end, userlist(Channel)).
     

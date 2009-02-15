@@ -42,7 +42,7 @@ work(Socket) ->
             Request = read_packet(Bin),
             PhrReq = phrase_request(Request),
             #request{action={Method, Location, _, _}} = PhrReq,
-            Dispatcher = case [Dispatcher || {urldispatcher, Location0, Dispatcher}
+            Dispatcher = case [Dispatcher || {url, Location0, Dispatcher}
                     <- config:url(), lists:prefix(Location0, Location)] of
                     [] ->
                         fun processer:notfound/2;
