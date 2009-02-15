@@ -10,7 +10,7 @@
 
 -import(lists, [foreach/2]).
 
--import(whereserver, [where/2, whois/1]).
+-import(whereserver, [where/1, whois/1]).
 -import(channelserver, [userlist/1]).
 
 
@@ -21,11 +21,11 @@ init(_) ->
     {ok, ets:new(message, [private, duplicate_bag])}.
     
 handle_cast({push, Who, Channel, Msg}, Msgs) ->
-    case where(Who, Channel) of
+    case where(Who) of
         {address, notfound} ->
             ets:insert(Msgs, {{Who, Channel}, Msg, make_ref()}),
             {noreply, Msgs};
-        {address, Channel, Who, From} ->
+        {address, Who, From} ->
             Tag = make_ref(),
             From ! {self(), Tag, {message, Channel, Msg}},
             receive
