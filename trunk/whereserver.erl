@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -export([init/1, handle_cast/2, handle_call/3, handle_info/2, code_change/3, terminate/2]).
 -export([start_link/0]).
--export([iam/2, off/2, where/2, whois/1]).
+-export([iam/1, off/1, where/1, whois/1]).
 
 -import(lists, [umerge/2]).
 
@@ -16,33 +16,33 @@ init(_) ->
 handle_cast(_, State) ->
     {noreply, State}.
     
-handle_call({iam, Who, Channel}, {From, _Tag}, Addrs) ->
-    ets:insert(Addrs, {{Who, Channel}, From}),
+handle_call({iam, Who}, {From, _Tag}, Addrs) ->
+    ets:insert(Addrs, {Who, From}),
     {reply, void, Addrs};
     
-handle_call({off, Who, Channel}, {_From, _Tag}, Addrs) ->
-    ets:delete(Addrs, {Who, Channel}),
+handle_call({off, Who}, {_From, _Tag}, Addrs) ->
+    ets:delete(Addrs, Who),
     {reply, void, Addrs};
     
-handle_call({where, Who, Channel}, {_From, _Tag}, Addrs) ->
-    Ws = ets:lookup(Addrs, {Who, Channel}),
+handle_call({where, Who}, {_From, _Tag}, Addrs) ->
+    Ws = ets:lookup(Addrs, Who),
     W = case Ws of
             [] ->
                 {address, notfound};
             [Addr|_] ->
-                {{Who, Channel}, From} = Addr,
-                {address, Channel, Who, From}
+                {Who, From} = Addr,
+                {address, Who, From}
         end,
     {reply, W, Addrs};
     
 handle_call({whois, From}, {_From, _Tag}, Addrs) ->
-    Ws = ets:select(Addrs, [{{'$1','$2'},[{'=:=','$2',{const,From}}],['$_']}]),
+    Ws = ets:select(Addrs, [{{'$1','$2'},[{'=:=','$2',{const, From}}],['$_']}]),
     W = case Ws of
             [] ->
                 {address, notfound};
             [Addr|_] ->
-                {{Who, Channel}, From} = Addr,
-                {address, Channel, Who, From}
+                {Who, From} = Addr,
+                {address, Who, From}
         end,
     {reply, W, Addrs}.
 
@@ -56,16 +56,15 @@ terminate(_Reason, _Addrs) ->
     ok.
 
     
-iam(Who, Channel) ->
-    gen_server:call(?MODULE, {iam, Who, Channel}).
+iam(Who) ->
+    gen_server:call(?MODULE, {iam, Who}).
     
-off(Who, Channel) ->
-    gen_server:call(?MODULE, {off, Who, Channel}).
+off(Who) ->
+    gen_server:call(?MODULE, {off, Who}).
     
-where(Who, Channel) ->
-    gen_server:call(?MODULE, {where, Who, Channel}).
+where(Who) ->
+    gen_server:call(?MODULE, {where, Who}).
     
 whois(From) ->
     gen_server:call(?MODULE, {whois, From}).
-
 

@@ -16,6 +16,8 @@ init(_) ->
                 permanent, brutal_kill, worker, [channelserver]},
             {whereserver, {whereserver, start_link, []},
                 permanent, brutal_kill, worker, [whereserver]},
+            {sessionserver, {sessionserver, start_link, []},
+                permanent, brutal_kill, worker, [sessionserver]},
             {httpserver, {httpserver, start_link, []},
                 permanent, ?MTTL, worker, [httpserver]}
         ]}}.
