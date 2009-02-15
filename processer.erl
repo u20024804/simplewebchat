@@ -15,8 +15,7 @@
 
 index(get, #request{action=Action, sessionid=SessionId}) ->
     {_Method, Channel, _Version, _UrlQuery} = Action,
-    %join(SessionId, Channel),
-    User = get_session(SessionId, "username"),
+    {session, found, User} = get_session(SessionId, "username"),
     iam(User),
     Msg = filter(popmsg(User, Channel)),            
     off(User),
@@ -30,12 +29,6 @@ index(get, #request{action=Action, sessionid=SessionId}) ->
                     {head, "Cache-Control", "no-cache"}]
     end,
     #response{heads=Heads, body=Body};
-    
-%index(get, #request{}) ->
-    %{_Method, Channel, _Version, _UrlQuery} = Action,
-    %join(SessionId, Channel),
-%    Body = "function response(){return ''}",
-%    #response{body=Body};
 
 index(post, #request{action=Action, data=Data}) ->
     Inputs = querystr(Data),
