@@ -5,6 +5,7 @@
 
 url() ->
     [
-        {urldispatch, "/message", fun processer:index/2},
-        {urldispatch, "/register", fun processer:register/2}
+        {urldispatcher, "/message", fun processer:index/2},
+        {urldispatcher, "/register", fun processer:register/2},
+        {urldispatcher, "/login", fun processer:login/2}
     ].

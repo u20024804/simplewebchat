@@ -42,7 +42,7 @@ work(Socket) ->
             Request = read_packet(Bin),
             PhrReq = phrase_request(Request),
             #request{action={Method, Location, _, _}} = PhrReq,
-            Dispatcher = case [Dispatcher || {urldispatch, Location0, Dispatcher}
+            Dispatcher = case [Dispatcher || {urldispatcher, Location0, Dispatcher}
                     <- config:url(), lists:prefix(Location0, Location)] of
                     [] ->
                         fun processer:notfound/2;
@@ -54,10 +54,13 @@ work(Socket) ->
                 try Dispatcher(Method, PhrReqWithCookie)
                 catch
                     throw:Throw ->
+                        io:format("throw: ~p~n", [Throw]),
                         #response{body=format("throw: ~p~n", [Throw])};
                     exit:Exit ->
+                        io:format("exit: ~p~n", [Exit]),
                         #response{body=format("exit: ~p~n", [Exit])};
                     error:Error ->
+                        io:format("error: ~p~n", [Error]),
                         #response{body=format("error: ~p~n", [Error])}
                 end,
             SetCookie = case SetCookie0 of
